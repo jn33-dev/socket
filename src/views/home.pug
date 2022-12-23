@@ -17,4 +17,12 @@ html(lang="en")
             form#message    
                 input(placeholder="message", required, type="text")
                 button send
+            div#call
+                div#myStream
+                    video#myFace(autoplay,playsinline, width="400", height="400")
+                    button#mute Mute
+                    button#camera Turn Camera Off
+                    select#cameras
+                    video#peerFace(autoplay,playsinline, width="400", height="400")
+        script(src="/socket.io/socket.io.js") 
         script(src="/public/js/app.js")
