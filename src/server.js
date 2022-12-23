@@ -1,6 +1,6 @@
-import http from "http";
-import SocketIO from "socket.io";
-import express from "express";
+const http = require("http");
+const express = require("express");
+const ws = require("ws");
 
 const app = express();
 
@@ -10,24 +10,34 @@ app.use("/public", express.static(__dirname + "/public"));
 app.get("/", (_, res) => res.render("home"));
 app.get("/*", (_, res) => res.redirect("/"));
 
-const httpServer = http.createServer(app);
-const wsServer = SocketIO(httpServer);
+const handleListen = () => console.log(`Listening on http://localhost:3000`);
+const server = http.createServer(app);
+const wss = new ws.Server({ server });
 
-wsServer.on("connection", (socket) => {
-  socket.on("join_room", (roomName) => {
-    socket.join(roomName);
-    socket.to(roomName).emit("welcome");
+const sockets = [];
+
+//socket 메소드 사용해서 브라우저로 데이터 송출
+// back에서의 socket은 방금 접속한 브라우저를 의미
+wss.on("connection", (socket) => {
+  sockets.push(socket);
+  socket["nickname"] = "Anon";
+  console.log("Connected to Browser ❤");
+  socket.on("close", () => {
+    sockets.splice(sockets.indexOf(socket), 1);
+    console.log("Disconnected from the Browser 💔");
+    console.log(sockets.length);
   });
-  socket.on("offer", (offer, roomName) => {
-    socket.to(roomName).emit("offer", offer);
-  });
-  socket.on("answer", (answer, roomName) => {
-    socket.to(roomName).emit("answer", answer);
-  });
-  socket.on("ice", (ice, roomName) => {
-    socket.to(roomName).emit("ice", ice);
+  socket.on("message", (msg) => {
+    const message = JSON.parse(msg);
+    switch (message.type) {
+      case "message":
+        sockets.forEach((aSocket) =>
+          aSocket.send(`${socket.nickname} : ${message.payload}`)
+        );
+      case "nickname":
+        socket["nickname"] = message.payload;
+    }
   });
 });
 
-const handleListen = () => console.log(`Listening on http://localhost:3000`);
-httpServer.listen(3000, handleListen);
+server.listen(3000, handleListen);
