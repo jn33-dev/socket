@@ -15,7 +15,12 @@ const httpServer = http.createServer(app);
 const io = SocketIo(httpServer);
 
 io.on("connection", (socket) => {
-  console.log(socket);
+  socket.on("join_room", (msg, done) => {
+    console.log(msg);
+    setTimeout(() => {
+      done();
+    }, 5000);
+  });
 });
 
 // const sockets = [];

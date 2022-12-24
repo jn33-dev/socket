@@ -112,7 +112,9 @@ async function handleWelcomeSubmit(event) {
   event.preventDefault();
   const input = welcomeForm.querySelector("input");
   await initCall();
-  socket.emit("join_room", input.value);
+  socket.emit("join_room", { payload: input.value }, () => {
+    console.log("server is done");
+  });
   roomName = input.value;
   input.value = "";
 }
