@@ -11,21 +11,71 @@ app.get("/", (_, res) => res.render("home"));
 app.get("/*", (_, res) => res.redirect("/"));
 
 const httpServer = http.createServer(app);
-const wsServer = SocketIO(httpServer);
+const io = SocketIO(httpServer);
 
-wsServer.on("connection", (socket) => {
-  socket.on("join_room", (roomName) => {
-    socket.join(roomName);
-    socket.to(roomName).emit("welcome");
+const roomList = [];
+io.on("connection", (socket) => {
+  socket.on("create-room", (room) => {
+    room.roomId = roomList.length + 1;
+    room.participants = [];
+    roomList.push(room);
+    const newRoom = {
+      roomId: room.roomId,
+      roomTitle: room.roomTitle,
+      maxCount: room.maxCount,
+      IsSecreteRoom: room.IsSecreteRoom,
+    };
+    socket.join(`${newRoom.roomId}`); // 방장 방에 입장
+    for (const r of roomList) {
+      if (r.roomId === newRoom.roomId) {
+        r.participants.push(data.hostNickname);
+      }
+    }
+    socket.broadcast("create-room", { data: newRoom });
   });
-  socket.on("offer", (offer, roomName) => {
-    socket.to(roomName).emit("offer", offer);
+
+  socket.emit("room-list", {
+    data: roomList.map((room) => {
+      return {
+        roomId: room.roomId,
+        roomTitle: room.roomTitle,
+        maxCount: room.maxCount,
+        participants: room.participants.length,
+        IsSecreteRoom: room.IsSecreteRoom,
+      };
+    }),
   });
-  socket.on("answer", (answer, roomName) => {
-    socket.to(roomName).emit("answer", answer);
+
+  socket.on("enter-room", (data) => {
+    for (const room of roomList) {
+      if (room.roomId === data.roomId) {
+        if (room.maxCount > room.participants.length) {
+          if (data.IsSecreteRoom) {
+            if (data.roomPassword === roomToEnter.roomPassword) {
+              socket.join(`${data.roomId}`);
+              room.participants.push(data.nickname);
+              socket.to(`${data.roomId}`).emit("welcome");
+            } else {
+              socket.emit("enter-room", {
+                errorMessage: "비밀번호가 일치하지 않습니다.",
+              });
+            }
+          } else {
+            socket.join(`${data.roomId}`);
+            room.participants.push(data.nickname);
+            socket.to(`${data.roomId}`).emit("welcome");
+          }
+        } else {
+          socket.emit("enter-room", {
+            errorMessage: "정원초과로 방 입장에 실패했습니다.",
+          });
+        }
+      }
+    }
   });
-  socket.on("ice", (ice, roomName) => {
-    socket.to(roomName).emit("ice", ice);
+
+  socket.on("send-chat", (message) => {
+    io.to(`${data.roomId}`).emit("receive-chat", message);
   });
 });
 
